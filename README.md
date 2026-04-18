@@ -2,7 +2,7 @@
 
 Interactive **threshold secret sharing** for images: split a secret picture into **n** grayscale “share” images so that any **k** of them recover the original exactly, while **k − 1** (or fewer) reveal no information about the secret. The demo runs entirely in the browser (no server).
 
-**Live demo:** [https://cherie-dips.github.io/Visual-Secret/](https://cherie-dips.github.io/Visual-Secret/) (after you enable GitHub Pages as described below).
+**Live demo:** [https://cherie-dips.github.io/Visual-Secret/](https://cherie-dips.github.io/Visual-Secret/).
 
 ## How it works
 
