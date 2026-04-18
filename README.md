@@ -47,6 +47,16 @@ This repository includes a workflow that publishes the site with **GitHub Action
 
 If you prefer not to use Actions, you can instead set Pages **Source** to **Deploy from a branch**, branch **main**, folder **/ (root)**; ensure `index.html` is at the repository root.
 
+### Troubleshooting: `Get Pages site failed` / `HttpError: Not Found`
+
+That means GitHub Pages is not enabled for this repo yet (or the source is not **GitHub Actions**). Do this once:
+
+1. **Settings → Pages → Build and deployment**
+2. Set **Source** to **GitHub Actions** (not “Deploy from a branch”).
+3. Re-run the failed workflow (**Actions → workflow run → Re-run all jobs**).
+
+The workflow also sets `enablement: true` on `configure-pages` so a later run can turn Pages on automatically when the token is allowed to do so; some orgs still require the manual step above.
+
 ## Repository layout
 
 | File | Purpose |

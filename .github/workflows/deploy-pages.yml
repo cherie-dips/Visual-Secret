@@ -27,6 +27,9 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v4
+        with:
+          # Creates/enables the GitHub Pages site when it does not exist yet (avoids 404 from Get Pages site).
+          enablement: true
 
       - name: Prepare site
         run: |
