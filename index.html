@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Visual Secret Sharing — Interactive Demo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:    #0f0e0c;
+  --paper:  #f5f2eb;
+  --cream:  #ede9df;
+  --warm:   #d4c9b0;
+  --accent: #b5451b;
+  --blue:   #1e4d8c;
+  --green:  #2a6b4a;
+  --mono:   'IBM Plex Mono', monospace;
+  --serif:  'Fraunces', serif;
+  --r:      8px;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  min-height: 100vh;
+  font-size: 15px;
+}
+
+/* halftone bg */
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image: radial-gradient(circle, rgba(15,14,12,.06) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.page { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:36px 24px 60px; }
+
+/* ── Header ── */
+header { border-bottom: 2px solid var(--ink); padding-bottom: 20px; margin-bottom: 32px; }
+.eyebrow { font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
+h1 { font-family:var(--serif); font-size:clamp(28px,4vw,52px); font-weight:600; line-height:1.05; letter-spacing:-.02em; }
+h1 em { font-style:italic; font-weight:300; color:var(--accent); }
+.tagline { font-family:var(--mono); font-size:12px; color:#666; margin-top:8px; letter-spacing:.04em; }
+
+/* ── Tabs ── */
+.tabs { display:flex; gap:0; margin-bottom:28px; border-bottom:2px solid var(--ink); }
+.tab { font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.1em; padding:10px 22px; cursor:pointer; background:none; border:none; border-bottom:3px solid transparent; margin-bottom:-2px; color:#888; transition:.15s; }
+.tab.active { color:var(--ink); border-bottom-color:var(--accent); }
+.tab:hover:not(.active) { color:var(--ink); }
+
+.pane { display:none; } .pane.active { display:block; }
+
+/* ── Cards ── */
+.card { background:var(--cream); border:1.5px solid var(--ink); border-radius:var(--r); padding:22px; }
+.card-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.12em; color:#888; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.card-label::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
+.card-label.blue::before  { background:var(--blue); }
+.card-label.green::before { background:var(--green); }
+
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.three-col { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+@media(max-width:720px) { .two-col,.three-col { grid-template-columns:1fr; } }
+
+/* ── Canvas ── */
+canvas { display:block; image-rendering:pixelated; }
+.canvas-frame {
+  border:2px solid var(--ink); border-radius:6px; overflow:hidden;
+  background:#fff; cursor:crosshair; width:100%; aspect-ratio:1;
+}
+.canvas-frame canvas { width:100%; height:100%; }
+
+/* ── Buttons ── */
+button {
+  font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  padding:9px 18px; border-radius:6px; cursor:pointer; border:1.5px solid; transition:.15s;
+}
+.btn-primary   { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn-primary:hover { filter:brightness(1.1); }
+.btn-outline   { background:transparent; border-color:var(--ink); color:var(--ink); }
+.btn-outline:hover { background:var(--ink); color:var(--paper); }
+.btn-sm        { padding:6px 12px; font-size:10px; }
+.btn-danger    { background:transparent; border-color:#c0392b; color:#c0392b; }
+.btn-danger:hover { background:#c0392b; color:#fff; }
+button:disabled { opacity:.4; cursor:not-allowed; }
+
+.ctrl-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+
+/* ── Form controls ── */
+select, input[type=number] {
+  font-family:var(--mono); font-size:12px; background:var(--paper);
+  border:1.5px solid var(--ink); border-radius:6px; padding:7px 10px; color:var(--ink); outline:none;
+}
+select:focus, input[type=number]:focus { border-color:var(--accent); }
+input[type=number] { width:64px; }
+input[type=range]  { accent-color:var(--accent); width:80px; }
+label { font-family:var(--mono); font-size:11px; color:#555; display:flex; align-items:center; gap:8px; letter-spacing:.04em; }
+
+/* ── Draw tools ── */
+.tool-row { display:flex; gap:6px; margin-top:10px; align-items:center; flex-wrap:wrap; }
+.tool-btn {
+  width:32px; height:32px; border-radius:6px; border:1.5px solid var(--warm);
+  background:var(--paper); cursor:pointer; font-size:14px;
+  display:flex; align-items:center; justify-content:center; transition:.15s;
+}
+.tool-btn.on  { border-color:var(--ink); background:var(--ink); color:var(--paper); }
+.tool-btn:hover:not(.on) { border-color:var(--ink); }
+.tool-sep { width:1px; height:24px; background:var(--warm); margin:0 4px; }
+
+/* ── Share tiles ── */
+.share-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:12px; margin-top:12px; }
+.share-tile {
+  border:1.5px dashed var(--warm); border-radius:8px; padding:10px;
+  cursor:grab; transition:border-color .15s, transform .15s; position:relative; background:var(--paper);
+  user-select:none;
+}
+.share-tile:hover  { border-color:var(--ink); transform:translateY(-2px); }
+.share-tile canvas { width:100%; aspect-ratio:1; image-rendering:pixelated; border-radius:3px; display:block; border:1px solid var(--warm); }
+.share-tile .tlabel { font-family:var(--mono); font-size:9px; color:#888; text-align:center; margin-top:5px; line-height:1.4; }
+.share-tile .del    { position:absolute; top:5px; right:5px; width:18px; height:18px; border-radius:50%; background:var(--accent); border:none; color:#fff; font-size:10px; cursor:pointer; display:none; align-items:center; justify-content:center; padding:0; line-height:1; }
+.share-tile:hover .del { display:flex; }
+.share-tile.dragging { opacity:.45; }
+
+/* ── Drop zone ── */
+.drop-zone {
+  min-height:220px; border:2px dashed var(--warm); border-radius:8px; background:var(--paper);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:.2s; padding:12px; gap:10px;
+}
+.drop-zone.over    { border-color:var(--green); background:rgba(42,107,74,.04); }
+.drop-zone canvas  { image-rendering:pixelated; border-radius:4px; border:1.5px solid var(--ink); }
+.drop-hint { text-align:center; }
+.drop-hint .icon   { font-size:32px; margin-bottom:6px; }
+.drop-hint p       { font-family:var(--mono); font-size:11px; color:#888; }
+.chip-row          { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+.chip {
+  font-family:var(--mono); font-size:9px; padding:3px 8px; border-radius:3px;
+  background:rgba(30,77,140,.08); border:1px solid var(--blue); color:var(--blue);
+  display:flex; align-items:center; gap:4px;
+}
+.chip button { border:none; background:none; cursor:pointer; color:var(--blue); font-size:10px; padding:0; min-width:0; line-height:1; }
+
+/* ── Status ── */
+.status { font-family:var(--mono); font-size:11px; padding:8px 14px; border-radius:6px; margin-top:12px; letter-spacing:.03em; }
+.s-ok   { background:rgba(42,107,74,.08); color:var(--green); border:1px solid rgba(42,107,74,.3); }
+.s-err  { background:rgba(181,69,27,.08); color:var(--accent); border:1px solid rgba(181,69,27,.3); }
+.s-info { background:rgba(30,77,140,.08); color:var(--blue); border:1px solid rgba(30,77,140,.3); }
+
+/* ── Progress ── */
+.prog { height:3px; background:var(--warm); border-radius:2px; margin-top:12px; display:none; overflow:hidden; }
+.prog-fill { height:100%; background:var(--accent); width:0; transition:width .1s linear; border-radius:2px; }
+
+/* ── Upload drop ── */
+.upload-box { border:1.5px dashed var(--warm); border-radius:6px; padding:14px; text-align:center; cursor:pointer; transition:.15s; }
+.upload-box:hover { border-color:var(--ink); }
+.upload-box p { font-family:var(--mono); font-size:11px; color:#888; }
+.upload-box input { display:none; }
+
+/* ── Entropy ── */
+.entropy-wrap { margin-top:16px; }
+.entropy-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#888; margin-bottom:6px; }
+.entropy-bar   { height:6px; background:var(--warm); border-radius:3px; overflow:hidden; margin-bottom:4px; }
+.entropy-fill  { height:100%; border-radius:3px; transition:width .5s ease; }
+.entropy-note  { font-family:var(--mono); font-size:10px; color:#888; }
+
+/* ── Theory ── */
+.theory-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:720px) { .theory-grid { grid-template-columns:1fr; } }
+.mono-block { font-family:var(--mono); font-size:12px; background:var(--paper); border:1.5px solid var(--ink); border-radius:6px; padding:14px; line-height:2; color:var(--ink); }
+.mono-block h4 { font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#888; margin-bottom:8px; }
+.mono-block .hi { color:var(--accent); }
+.mono-block .hi2 { color:var(--blue); }
+.pixel-demo { display:flex; gap:28px; flex-wrap:wrap; margin-top:8px; }
+.pixel-case strong { display:block; font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#666; margin-bottom:8px; }
+.px-label { font-family:var(--mono); font-size:9px; color:#888; margin-bottom:4px; }
+.px-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px; width:36px; margin-bottom:10px; }
+.px { width:16px; height:16px; border-radius:2px; }
+.blk { background:#111; } .wht { background:#e8e4da; border:1px solid #ccc; }
+
+hr { border:none; border-top:1.5px solid var(--warm); margin:20px 0; }
+.section-gap { margin-top:16px; }
+.kn-big { font-family:var(--serif); font-size:36px; font-weight:600; color:var(--accent); letter-spacing:-.02em; }
+.kn-sub { font-family:var(--mono); font-size:11px; color:#888; margin-top:2px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="eyebrow">Cryptography Assignment · (k,n) Threshold Scheme</div>
+  <h1>Visual <em>Secret</em> Sharing</h1>
+  <p class="tagline">Split a secret image into n shares · Any k shares reconstruct · Fewer than k reveal nothing</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('gen')">① Generate Shares</button>
+  <button class="tab" onclick="switchTab('rec')">② Reconstruct</button>
+  <button class="tab" onclick="switchTab('theory')">③ Theory</button>
+</div>
+
+<!-- ══════════════ GENERATE PANE ══════════════ -->
+<div id="pane-gen" class="pane active">
+  <div class="two-col">
+
+    <div class="card">
+      <div class="card-label">Secret image — draw or upload</div>
+      <div class="canvas-frame" id="draw-frame">
+        <canvas id="dc" width="200" height="200"></canvas>
+      </div>
+      <div class="tool-row">
+        <div class="tool-btn on"  id="tb-pen"   title="Pen"   onclick="setTool('pen')">✏</div>
+        <div class="tool-btn"     id="tb-erase" title="Erase" onclick="setTool('erase')">◻</div>
+        <div class="tool-btn"     id="tb-fill"  title="Fill"  onclick="setTool('fill')">▣</div>
+        <div class="tool-sep"></div>
+        <input type="range" id="bs" min="1" max="18" value="8" oninput="document.getElementById('bsl').textContent=this.value" title="Brush size">
+        <span id="bsl" style="font-family:var(--mono);font-size:11px;color:#888;min-width:14px">8</span>
+        <div class="tool-sep"></div>
+        <button class="btn-outline btn-sm" onclick="clearDraw()">Clear</button>
+        <button class="btn-outline btn-sm" onclick="drawExample()">Example</button>
+      </div>
+      <div class="upload-box" style="margin-top:10px" onclick="document.getElementById('img-up').click()">
+        <input type="file" id="img-up" accept="image/*" onchange="loadImg(event)"/>
+        <p>📂 Upload image</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label blue">Scheme configuration</div>
+      <div class="kn-big" id="kn-display">(2, 3)</div>
+      <div class="kn-sub">threshold k of n shares needed</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:18px">
+        <label>Total shares n <input type="number" id="n-val" min="2" max="8" value="3" oninput="syncKN()"/></label>
+        <label>Threshold k     <input type="number" id="k-val" min="2" max="8" value="2" oninput="syncKN()"/></label>
+        <label>Method
+          <select id="method">
+            <option value="shamir">Shamir GF(256) — exact reconstruction</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="info-shamir" style="margin-top:14px;font-family:var(--mono);font-size:11px;color:#666;line-height:1.8;border-left:3px solid var(--blue);padding-left:12px">
+        Each pixel value split via degree-(k−1) polynomial over GF(256).
+        Any k shares reconstruct exact pixel via Lagrange interpolation. Lossless.
+      </div>
+
+      <div class="prog" id="gen-prog"><div class="prog-fill" id="gen-fill"></div></div>
+      <div class="ctrl-row">
+        <button class="btn-primary" onclick="doGenerate()">Generate shares</button>
+      </div>
+      <div id="gen-status"></div>
+    </div>
+  </div>
+
+  <div class="card section-gap" id="shares-out" style="display:none">
+    <div class="card-label green">Generated shares — each looks like random noise</div>
+    <div class="share-grid" id="shares-grid"></div>
+    <div class="ctrl-row">
+      <button class="btn-outline btn-sm" onclick="dlAll()">⬇ Download all shares</button>
+      <button class="btn-outline btn-sm" onclick="switchTab('rec')">→ Go to Reconstruct</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ RECONSTRUCT PANE ══════════════ -->
+<div id="pane-rec" class="pane">
+  <div class="two-col">
+
+    <div class="card">
+      <div class="card-label">Available shares</div>
+      <p style="font-family:var(--mono);font-size:11px;color:#888;margin-bottom:10px">
+        Click a share to add it to the overlay zone →
+      </p>
+      <div class="share-grid" id="avail-grid">
+        <p style="font-family:var(--mono);font-size:11px;color:#aaa">Generate shares first, or upload below.</p>
+      </div>
+      <hr/>
+      <div class="card-label" style="margin-bottom:8px">Upload saved shares</div>
+      <div class="upload-box" onclick="document.getElementById('sh-up').click()">
+        <input type="file" id="sh-up" accept="image/png" multiple onchange="uploadShares(event)"/>
+        <p>📂 Upload share PNG files (multiple ok)</p>
+      </div>
+      <div id="ul-status"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label blue">Overlay zone</div>
+      <div class="drop-zone" id="dz"
+        ondragover="event.preventDefault();event.currentTarget.classList.add('over')"
+        ondragleave="event.currentTarget.classList.remove('over')"
+        ondrop="onDrop(event)">
+        <div class="drop-hint" id="dz-hint">
+          <div class="icon">⬇</div>
+          <p>Drag or click shares to add</p>
+          <p style="margin-top:4px">Result = Shamir reconstruction from overlaid shares (Lagrange in GF(256))</p>
+        </div>
+        <canvas id="oc" width="200" height="200" style="display:none;max-width:200px;"></canvas>
+        <div class="chip-row" id="chip-row"></div>
+      </div>
+
+      <div id="rec-status"></div>
+
+      <div class="entropy-wrap">
+        <div class="entropy-label">Pixel entropy of overlay</div>
+        <div class="entropy-bar"><div class="entropy-fill" id="ef" style="width:0%;background:var(--accent)"></div></div>
+        <div class="entropy-note" id="en-note">No shares overlaid yet</div>
+      </div>
+
+      <div class="ctrl-row">
+        <button class="btn-danger btn-sm" onclick="clearOverlay()">✕ Clear overlay</button>
+        <button class="btn-outline btn-sm" onclick="dlResult()">⬇ Download result</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ THEORY PANE ══════════════ -->
+<div id="pane-theory" class="pane">
+  <div class="theory-grid">
+
+    <div class="card">
+      <div class="card-label">Shamir over GF(256)</div>
+      <div class="mono-block">
+        <h4>Share generation (per pixel value s)</h4>
+        f(x) = s + a₁x + … + aₖ₋₁xᵏ⁻¹<br>
+        aᵢ ∈ GF(256) chosen uniformly at random<br>
+        shareᵢ = <span class="hi">(i, f(i))</span>  for i = 1..n
+      </div>
+      <div class="mono-block" style="margin-top:10px">
+        <h4>Reconstruction (Lagrange interpolation)</h4>
+        s = Σᵢ yᵢ · Πⱼ≠ᵢ xⱼ/(xⱼ⊕xᵢ)<br>
+        all arithmetic in <span class="hi2">GF(2⁸)</span><br>
+        irreducible poly: <span class="hi2">x⁸+x⁴+x³+x+1</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label green">Security properties</div>
+      <div style="display:flex;flex-direction:column;gap:14px;font-family:var(--mono);font-size:11px;color:#555;line-height:1.8">
+        <div><span style="color:var(--accent);font-weight:600">Perfect secrecy</span><br>
+          k−1 shares are statistically independent of the secret (Shannon entropy proof). No polynomial-time adversary can do better than guessing.</div>
+        <div><span style="color:var(--blue);font-weight:600">Threshold reconstruction</span><br>
+          Any k shares reconstruct. Any k−1 shares are uniformly random — exactly as secure as a one-time pad.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  GF(256) ARITHMETIC
+// ══════════════════════════════════════════════════════════
+const GF = (() => {
+  const MOD = 0x11b;
+  const mul = (a, b) => {
+    let p = 0;
+    for (let i = 0; i < 8; i++) {
+      if (b & 1) p ^= a;
+      const hb = a & 0x80;
+      a = (a << 1) & 0xff;
+      if (hb) a ^= (MOD & 0xff);
+      b >>= 1;
+    }
+    return p;
+  };
+  const pow = (a, e) => { let r = 1; for (let i = 0; i < e; i++) r = mul(r, a); return r; };
+  const inv = a => pow(a, 254);          // Fermat's little theorem
+  const div = (a, b) => mul(a, inv(b));
+  return { mul, inv, div };
+})();
+
+// ══════════════════════════════════════════════════════════
+//  SHAMIR (k,n) PER PIXEL
+// ══════════════════════════════════════════════════════════
+function shamirSplit(secret, k, n) {
+  const c = [secret & 0xff];
+  for (let i = 1; i < k; i++) c.push(Math.floor(Math.random() * 256));
+  return Array.from({ length: n }, (_, xi) => {
+    const x = xi + 1;
+    let y = 0;
+    for (let i = c.length - 1; i >= 0; i--) y = GF.mul(y, x) ^ c[i];
+    return { x, y };
+  });
+}
+
+function shamirReconstruct(pts) {   // pts = [{x, y}, …]  length >= k
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) {
+    let num = 1, den = 1;
+    for (let j = 0; j < pts.length; j++) {
+      if (i === j) continue;
+      num = GF.mul(num, pts[j].x);
+      den = GF.mul(den, pts[j].x ^ pts[i].x);
+    }
+    s ^= GF.mul(pts[i].y, GF.div(num, den));
+  }
+  return s & 0xff;
+}
+
+// ══════════════════════════════════════════════════════════
+//  GENERATE SHARES  (async with progress)
+// ══════════════════════════════════════════════════════════
+
+async function generateShamir(gray, srcW, srcH, k, n) {
+  const total = srcW * srcH;
+  const shareArrays = Array.from({ length: n }, () => new Uint8ClampedArray(total * 4));
+  for (let i = 0; i < total; i++) {
+    if (i % (srcW * 10) === 0) {
+      setProgress(i / total * 85);
+      await tick();
+    }
+    const pts = shamirSplit(gray[i], k, n);
+    for (let s = 0; s < n; s++) {
+      const v = pts[s].y;
+      shareArrays[s][i*4] = shareArrays[s][i*4+1] = shareArrays[s][i*4+2] = v;
+      shareArrays[s][i*4+3] = 255;
+    }
+  }
+  return shareArrays.map((arr, i) => ({
+    imageData: new ImageData(arr, srcW, srcH),
+    w: srcW, h: srcH,
+    x: i + 1,
+  }));
+}
+
+// ══════════════════════════════════════════════════════════
+//  RECONSTRUCTION — SHAMIR LAGRANGE INTERPOLATION
+// ══════════════════════════════════════════════════════════
+function reconstructShamir(shareObjs, k) {
+  if (shareObjs.length < k) {
+    // Return random noise to demonstrate security
+    const { w, h } = shareObjs[0];
+    const noise = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h; i++) {
+      const v = Math.floor(Math.random() * 256);
+      noise[i*4] = noise[i*4+1] = noise[i*4+2] = v;
+      noise[i*4+3] = 255;
+    }
+    return new ImageData(noise, w, h);
+  }
+  const { w, h } = shareObjs[0];
+  const out = new Uint8ClampedArray(w * h * 4);
+  const datas = shareObjs.map(s => s.imageData.data);
+  // Use only the first k shares
+  const use = shareObjs.slice(0, k);
+  const useDatas = datas.slice(0, k);
+  for (let p = 0; p < w * h; p++) {
+    const pts = use.map((s, si) => ({ x: s.x, y: useDatas[si][p*4] }));
+    const v = shamirReconstruct(pts);
+    out[p*4] = out[p*4+1] = out[p*4+2] = v;
+    out[p*4+3] = 255;
+  }
+  return new ImageData(out, w, h);
+}
+
+// ══════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+function toGray(rgba, w, h) {
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++)
+    out[i] = Math.round(0.299*rgba[i*4] + 0.587*rgba[i*4+1] + 0.114*rgba[i*4+2]);
+  return out;
+}
+
+function imageDataToCanvas(id, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  c.getContext('2d').putImageData(id, 0, 0);
+  return c;
+}
+
+function setStatus(id, msg, cls) {
+  document.getElementById(id).innerHTML = `<div class="status ${cls}">${msg}</div>`;
+}
+function setProgress(pct) {
+  const p = document.getElementById('gen-prog');
+  p.style.display = 'block';
+  document.getElementById('gen-fill').style.width = pct + '%';
+}
+function hideProgress() { document.getElementById('gen-prog').style.display = 'none'; }
+
+// ══════════════════════════════════════════════════════════
+//  DRAW CANVAS
+// ══════════════════════════════════════════════════════════
+const dc = document.getElementById('dc');
+const dctx = dc.getContext('2d', { willReadFrequently: true });
+dctx.fillStyle = '#ffffff'; dctx.fillRect(0, 0, 200, 200);
+let drawing = false, tool = 'pen';
+
+function setTool(t) {
+  tool = t;
+  ['pen','erase','fill'].forEach(id => {
+    document.getElementById('tb-' + id)?.classList.toggle('on', id === t);
+  });
+}
+function clearDraw() { dctx.fillStyle='#fff'; dctx.fillRect(0,0,200,200); }
+
+function drawExample() {
+  dctx.fillStyle = '#fff'; dctx.fillRect(0,0,200,200);
+  dctx.fillStyle = '#000';
+  dctx.font = 'bold 34px "IBM Plex Mono", monospace';
+  dctx.fillText('SECRET', 8, 80);
+  dctx.font = 'bold 18px "IBM Plex Mono", monospace';
+  dctx.fillText('Shamir (k,n)', 20, 116);
+  // key icon
+  dctx.lineWidth = 6; dctx.strokeStyle = '#000';
+  dctx.beginPath(); dctx.arc(50, 168, 22, 0, Math.PI*2); dctx.stroke();
+  dctx.fillRect(68, 162, 80, 10);
+  dctx.fillRect(120, 172, 10, 14);
+  dctx.fillRect(138, 172, 10, 14);
+}
+
+function getXY(e) {
+  const r = dc.getBoundingClientRect();
+  const sx = 200 / r.width, sy = 200 / r.height;
+  const cx = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - r.left;
+  const cy = (e.clientY ?? e.touches?.[0]?.clientY ?? 0) - r.top;
+  return [cx * sx, cy * sy];
+}
+
+function floodFill(x0, y0, fillRGB) {
+  x0 = Math.floor(x0); y0 = Math.floor(y0);
+  const id = dctx.getImageData(0,0,200,200); const d = id.data;
+  const idx = (y0*200+x0)*4;
+  const tr=d[idx], tg=d[idx+1], tb=d[idx+2];
+  if (tr===fillRGB[0] && tg===fillRGB[1] && tb===fillRGB[2]) return;
+  const stack = [[x0,y0]];
+  while (stack.length) {
+    const [cx,cy] = stack.pop();
+    if (cx<0||cx>=200||cy<0||cy>=200) continue;
+    const i=(cy*200+cx)*4;
+    if (d[i]!==tr||d[i+1]!==tg||d[i+2]!==tb) continue;
+    d[i]=fillRGB[0]; d[i+1]=fillRGB[1]; d[i+2]=fillRGB[2]; d[i+3]=255;
+    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+  }
+  dctx.putImageData(id,0,0);
+}
+
+dc.addEventListener('mousedown', e => {
+  drawing = true;
+  const [x,y] = getXY(e);
+  if (tool === 'fill') { floodFill(x,y, [0,0,0]); drawing=false; return; }
+  dctx.beginPath(); dctx.moveTo(x,y);
+  // dot on click
+  dctx.fillStyle = tool==='erase'?'#fff':'#000';
+  dctx.beginPath(); dctx.arc(x,y,+document.getElementById('bs').value/2,0,Math.PI*2); dctx.fill();
+});
+dc.addEventListener('mousemove', e => {
+  if (!drawing || tool==='fill') return;
+  const [x,y] = getXY(e);
+  dctx.lineWidth = +document.getElementById('bs').value;
+  dctx.lineCap = 'round'; dctx.lineJoin = 'round';
+  dctx.strokeStyle = tool==='erase'?'#ffffff':'#000000';
+  dctx.lineTo(x,y); dctx.stroke(); dctx.beginPath(); dctx.moveTo(x,y);
+});
+dc.addEventListener('mouseup',   () => { drawing=false; });
+dc.addEventListener('mouseleave',() => { drawing=false; });
+dc.addEventListener('touchstart', e => { e.preventDefault(); dc.dispatchEvent(new MouseEvent('mousedown',{clientX:e.touches[0].clientX,clientY:e.touches[0].clientY})); }, {passive:false});
+dc.addEventListener('touchmove',  e => { e.preventDefault(); dc.dispatchEvent(new MouseEvent('mousemove', {clientX:e.touches[0].clientX,clientY:e.touches[0].clientY})); }, {passive:false});
+dc.addEventListener('touchend', () => dc.dispatchEvent(new MouseEvent('mouseup')));
+
+function loadImg(ev) {
+  const f = ev.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    dctx.fillStyle='#fff'; dctx.fillRect(0,0,200,200);
+    const s=Math.min(200/img.width,200/img.height);
+    const w=img.width*s, h=img.height*s;
+    dctx.drawImage(img,(200-w)/2,(200-h)/2,w,h);
+  };
+  img.src = URL.createObjectURL(f);
+}
+
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+const S = {
+  shares: [],       // {id, label, shareObj: {imageData,w,h,x}, method, k, n}
+  overlaid: [],     // ids in overlay
+};
+
+// ══════════════════════════════════════════════════════════
+//  GENERATE
+// ══════════════════════════════════════════════════════════
+function syncKN() {
+  let n = +document.getElementById('n-val').value;
+  let k = +document.getElementById('k-val').value;
+  if (k > n) { k = n; document.getElementById('k-val').value = k; }
+  if (k < 2) { k = 2; document.getElementById('k-val').value = 2; }
+  if (n < 2) { n = 2; document.getElementById('n-val').value = 2; }
+  document.getElementById('kn-display').textContent = `(${k}, ${n})`;
+}
+document.getElementById('method').addEventListener('change', syncKN);
+
+async function doGenerate() {
+  const n = +document.getElementById('n-val').value;
+  const k = +document.getElementById('k-val').value;
+  if (k > n) { setStatus('gen-status','k must be ≤ n','s-err'); return; }
+
+  setStatus('gen-status','Generating…','s-info');
+  setProgress(0);
+
+  const W=200, H=200;
+  const srcData = dctx.getImageData(0,0,W,H);
+
+  const gray = toGray(srcData.data, W, H);
+  const rawShares = await generateShamir(gray, W, H, k, n);
+
+  setProgress(100);
+  await tick();
+  hideProgress();
+
+  S.shares = rawShares.map((rs, i) => ({
+    id: 'sh_' + Date.now() + '_' + i,
+    label: `Share ${i+1}`,
+    shareObj: rs,
+    method: 'shamir', k, n,
+  }));
+
+  renderSharesGrid();
+  renderAvailGrid();
+  setStatus('gen-status', `✓ ${n} shares generated (SHAMIR GF(256), k=${k})`, 's-ok');
+  document.getElementById('shares-out').style.display = '';
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER SHARES
+// ══════════════════════════════════════════════════════════
+function makeTile(sh, clickFn, delFn) {
+  const tile = document.createElement('div');
+  tile.className = 'share-tile';
+  tile.draggable = true;
+  tile.dataset.id = sh.id;
+
+  const c = imageDataToCanvas(sh.shareObj.imageData, sh.shareObj.w, sh.shareObj.h);
+  c.style.cssText = 'width:100%;aspect-ratio:1;image-rendering:pixelated;border-radius:3px;display:block;border:1px solid var(--warm)';
+  tile.appendChild(c);
+
+  tile.innerHTML += `<div class="tlabel">${sh.label}<br><span style="color:var(--accent);font-size:8px">${sh.method.toUpperCase()} · k=${sh.k} n=${sh.n}</span></div>`;
+
+  if (delFn) {
+    const del = document.createElement('button');
+    del.className = 'del'; del.textContent = '×';
+    del.onclick = e => { e.stopPropagation(); delFn(sh.id); };
+    tile.appendChild(del);
+  }
+
+  tile.addEventListener('click', () => clickFn(sh.id));
+  tile.addEventListener('dragstart', e => { e.dataTransfer.setData('shId', sh.id); tile.classList.add('dragging'); });
+  tile.addEventListener('dragend', () => tile.classList.remove('dragging'));
+  return tile;
+}
+
+function renderSharesGrid() {
+  const g = document.getElementById('shares-grid');
+  g.innerHTML = '';
+  S.shares.forEach(sh => g.appendChild(makeTile(sh, addToOverlay, id => {
+    S.shares = S.shares.filter(s => s.id !== id);
+    renderSharesGrid(); renderAvailGrid();
+  })));
+}
+
+function renderAvailGrid() {
+  const g = document.getElementById('avail-grid');
+  g.innerHTML = '';
+  if (!S.shares.length) {
+    g.innerHTML = '<p style="font-family:var(--mono);font-size:11px;color:#aaa">No shares yet.</p>';
+    return;
+  }
+  S.shares.forEach(sh => g.appendChild(makeTile(sh, addToOverlay, null)));
+}
+
+// ══════════════════════════════════════════════════════════
+//  OVERLAY ZONE
+// ══════════════════════════════════════════════════════════
+function onDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('over');
+  const id = e.dataTransfer.getData('shId');
+  if (id) addToOverlay(id);
+}
+
+function addToOverlay(id) {
+  if (S.overlaid.includes(id)) return;
+  S.overlaid.push(id);
+  recompute();
+}
+
+function removeFromOverlay(id) {
+  S.overlaid = S.overlaid.filter(x => x !== id);
+  recompute();
+}
+
+function clearOverlay() {
+  S.overlaid = [];
+  const oc = document.getElementById('oc');
+  oc.style.display = 'none';
+  document.getElementById('dz-hint').style.display = '';
+  document.getElementById('chip-row').innerHTML = '';
+  document.getElementById('rec-status').innerHTML = '';
+  document.getElementById('ef').style.width = '0%';
+  document.getElementById('en-note').textContent = 'No shares overlaid yet';
+}
+
+function recompute() {
+  const active = S.overlaid.map(id => S.shares.find(s => s.id === id)).filter(Boolean);
+  if (!active.length) { clearOverlay(); return; }
+
+  const k = active[0].k;
+  const n = active[0].n;
+
+  // ── SHAMIR RECONSTRUCTION ──
+  const resultID = reconstructShamir(active.map(s => s.shareObj), k);
+
+  const { w, h } = active[0].shareObj;
+  const oc = document.getElementById('oc');
+  oc.width = w; oc.height = h;
+  oc.getContext('2d').putImageData(resultID, 0, 0);
+  oc.style.cssText = `display:block; image-rendering:pixelated; border-radius:4px; border:1.5px solid var(--ink); max-width:200px;`;
+  document.getElementById('dz-hint').style.display = 'none';
+
+  // Chips
+  const cr = document.getElementById('chip-row');
+  cr.innerHTML = active.map(s =>
+    `<span class="chip">${s.label}
+      <button onclick="removeFromOverlay('${s.id}')" title="Remove">×</button>
+    </span>`
+  ).join('');
+
+  // Status
+  const have = active.length;
+  if (have >= k) {
+    setStatus('rec-status', `✓ ${have}/${k} shares overlaid — secret reconstructed!`, 's-ok');
+  } else {
+    setStatus('rec-status', `⚠ ${have}/${k} shares — need ${k-have} more (showing noise, no info leaked)`, 's-err');
+  }
+
+  updateEntropy(resultID, w, h, have, k);
+}
+
+function updateEntropy(id, w, h, have, k) {
+  const d = id.data;
+  const hist = new Array(256).fill(0);
+  for (let i = 0; i < w*h; i++) hist[d[i*4]]++;
+  let E = 0;
+  const total = w*h;
+  hist.forEach(c => { if (c>0) { const p=c/total; E -= p*Math.log2(p); } });
+  const pct = Math.min(100, E / 8 * 100);
+  const ef = document.getElementById('ef');
+  ef.style.width = pct + '%';
+  ef.style.background = have >= k ? 'var(--green)' : 'var(--accent)';
+  document.getElementById('en-note').textContent =
+    have >= k
+      ? `Shannon entropy ${E.toFixed(2)} bits — structured image (secret visible)`
+      : `Shannon entropy ${E.toFixed(2)}/8.0 bits — near-uniform noise, no information leaked`;
+}
+
+// ══════════════════════════════════════════════════════════
+//  UPLOAD SHARES
+// ══════════════════════════════════════════════════════════
+function uploadShares(ev) {
+  const files = [...ev.target.files];
+  let done = 0;
+  files.forEach((f, i) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const id = ctx.getImageData(0, 0, img.width, img.height);
+      S.shares.push({
+        id: 'up_' + Date.now() + '_' + i,
+        label: 'Upload ' + (i+1),
+        shareObj: { imageData: id, w: img.width, h: img.height, x: i+1 },
+        method: 'shamir',
+        k: 2, n: files.length,
+      });
+      done++;
+      if (done === files.length) {
+        renderAvailGrid();
+        setStatus('ul-status', `✓ ${done} share(s) loaded`, 's-ok');
+      }
+    };
+    img.src = URL.createObjectURL(f);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  DOWNLOADS
+// ══════════════════════════════════════════════════════════
+function dlAll() {
+  S.shares.forEach(sh => {
+    const c = imageDataToCanvas(sh.shareObj.imageData, sh.shareObj.w, sh.shareObj.h);
+    const a = document.createElement('a');
+    a.download = `${sh.label.replace(/\s/g,'_')}_of_${sh.n}.png`;
+    a.href = c.toDataURL();
+    a.click();
+  });
+}
+function dlResult() {
+  const oc = document.getElementById('oc');
+  if (oc.style.display === 'none') return;
+  const a = document.createElement('a');
+  a.download = 'reconstructed.png';
+  a.href = oc.toDataURL();
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('pane-'+id).classList.add('active');
+  const idx = {gen:0,rec:1,theory:2}[id];
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  if (id === 'rec') renderAvailGrid();
+}
+
+// ══════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════
+syncKN();
+drawExample();
+</script>
+</body>
+</html>
